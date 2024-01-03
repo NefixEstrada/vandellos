@@ -1,3 +1,5 @@
+const std = @import("std");
+
 const VGAColor = enum(u8) {
     black,
     blue,
@@ -17,12 +19,12 @@ const VGAColor = enum(u8) {
     white,
 };
 
-fn vgaEntryColor(fg: VGAColor, bg: VGAColor) VGAColor {
-    return @enumFromInt(@intFromEnum(fg) | (@intFromEnum(bg) << 4));
+fn vgaEntryColor(fg: VGAColor, bg: VGAColor) u16 {
+    return @intFromEnum(fg) | (@intFromEnum(bg) << 4);
 }
 
-fn vgaEntry(uc: u8, color: VGAColor) u16 {
-    return uc | @as(u16, @intFromEnum(color)) << 8;
+fn vgaEntry(uc: u8, color: u16) u16 {
+    return uc | color << 8;
 }
 
 pub const Tty = struct {
@@ -35,35 +37,35 @@ pub const Tty = struct {
     const width: usize = 80;
     // width is the height of the terminal
     const height: usize = 25;
-
     // row is the current row position
     row: usize = 0,
     // column is the current column position
     column: usize = 0,
-    // color is the active color
-    color: VGAColor = vgaEntryColor(.light_grey, .black),
+    // color is the active combination of background and foreground colors
+    color: u16 = vgaEntryColor(.light_grey, .black),
 
-    // reset resets the screen with the active color
-    pub fn reset(self: *Self) void {
-        for (0..height) |y| {
-            for (0..width) |x| {
-                self.putCharAt(' ', self.color, x, y);
-            }
-        }
+    // Implement std.io.Writer
+    pub const WriteError = error{};
+    pub const Writer = std.io.Writer(*Tty, WriteError, write);
+    pub fn writer(self: *Self) Writer {
+        return .{ .context = self };
     }
 
-    // putCharAt writes a character in a specific location with a specific color
-    pub fn putCharAt(_: *Self, char: u8, c: VGAColor, x: usize, y: usize) void {
+    // writeByteAt writes a byte in a specific location with a specific color
+    fn writeByteAt(b: u8, color: u16, x: usize, y: usize) void {
+        // Calculate the index of the buffer
         const i = y * width + x;
-        buffer[i] = vgaEntry(char, c);
+
+        // Write to the buffer
+        buffer[i] = vgaEntry(b, color);
     }
 
-    // putChar writes a character in the next place with the current color
-    pub fn putChar(self: *Self, char: u8) void {
-        switch (char) {
+    // writeByte writes a byte in the next place with the current color
+    fn writeByte(self: *Self, b: u8) void {
+        switch (b) {
             '\n' => self.newLine(),
             else => {
-                self.putCharAt(char, self.color, self.column, self.row);
+                writeByteAt(b, self.color, self.column, self.row);
                 self.column += 1;
 
                 // Check if we've reached the end of the line
@@ -79,16 +81,26 @@ pub const Tty = struct {
         }
     }
 
-    // newLine jumps to a new line
     fn newLine(self: *Self) void {
         self.row += 1;
         self.column = 0;
     }
 
-    // write writes a slice of strings to the screen
-    pub fn write(self: *Self, data: []const u8) void {
-        for (data) |c| {
-            self.putChar(c);
+    // write writes a buffer into the Tty text buffer
+    pub fn write(self: *Self, buf: []const u8) WriteError!usize {
+        for (buf) |b| {
+            self.writeByte(b);
+        }
+
+        return buf.len;
+    }
+
+    // reset cleans the screen with the active color
+    pub fn reset(self: *Self) void {
+        for (0..height) |y| {
+            for (0..width) |x| {
+                writeByteAt(' ', self.color, x, y);
+            }
         }
     }
 };
