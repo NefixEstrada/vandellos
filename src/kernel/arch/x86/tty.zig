@@ -42,7 +42,7 @@ pub const Tty = struct {
     // column is the current column position
     column: usize = 0,
     // color is the active combination of background and foreground colors
-    color: u16 = vgaEntryColor(.light_grey, .black),
+    color: u16 = vgaEntryColor(.light_brown, .red),
 
     // Implement std.io.Writer
     pub const WriteError = error{};
@@ -71,18 +71,34 @@ pub const Tty = struct {
                 // Check if we've reached the end of the line
                 if (self.column == width) {
                     self.newLine();
-
-                    // Check if we've reached the end of the screen
-                    if (self.row == height) {
-                        self.row = 0;
-                    }
                 }
             },
         }
     }
 
     fn newLine(self: *Self) void {
-        self.row += 1;
+        // If we are in the last row, move everything up one row
+        if (self.row == height - 1) {
+            // We start at 1, since the line at index 0 is going to be moved out of the buffer view
+            for (1..height) |y| {
+                for (0..width) |x| {
+                    // Calculate the old index of the buffer
+                    const oi = y * width + x;
+
+                    // Calculate the new index of the buffer
+                    const ni = (y - 1) * width + x;
+
+                    // Move the character from the current line to the previous line (one row up)
+                    buffer[ni] = buffer[oi];
+                }
+            }
+
+            // Remove the last line we moved up to make room for the new line
+            self.resetLine(height - 1);
+        } else {
+            self.row += 1;
+        }
+
         self.column = 0;
     }
 
@@ -95,12 +111,16 @@ pub const Tty = struct {
         return buf.len;
     }
 
+    fn resetLine(self: *Self, y: usize) void {
+        for (0..width) |x| {
+            writeByteAt(' ', self.color, x, y);
+        }
+    }
+
     // reset cleans the screen with the active color
     pub fn reset(self: *Self) void {
         for (0..height) |y| {
-            for (0..width) |x| {
-                writeByteAt(' ', self.color, x, y);
-            }
+            self.resetLine(y);
         }
     }
 };
