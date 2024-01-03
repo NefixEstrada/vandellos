@@ -1,5 +1,4 @@
 const builtin = @import("std").builtin;
-const main = @import("main.zig");
 
 const MultiBootHeaderFlag = enum(u8) {
     @"align" = 1 << 0,
@@ -29,11 +28,10 @@ export fn _main() noreturn {
     asm volatile (
         \\ movl %[stk], %esp
         \\ movl %esp, %ebp
+        \\ call main
         :
         : [stk] "{ecx}" (@intFromPtr(&stack_bytes) + @sizeOf(@TypeOf(stack_bytes))),
     );
-
-    @call(.auto, main.main, .{});
 
     while (true) {}
 }

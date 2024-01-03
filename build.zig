@@ -21,12 +21,13 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "vandellos",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/kernel/main.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    exe.setLinkerScript(.{ .path = b.pathFromRoot("./src/linker.ld") });
+    // TODO: Depend on the target, not hardcoded
+    exe.setLinkerScript(.{ .path = b.pathFromRoot("./src/kernel/arch/x86/linker.ld") });
 
     // Add Multiboot2 headers
     // const grub2_dep = b.dependency("grub2", .{});
@@ -74,7 +75,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/kernel/kernel/main.zig" },
         .target = target,
         .optimize = optimize,
     });
@@ -106,12 +107,19 @@ pub fn build(b: *std.Build) void {
     // iso_step.dependOn(&iso.step);
 
     // Boot
-    const boot = b.addSystemCommand(&.{ "qemu-system-i386", "-s", "-S", "-kernel" });
+    const boot = b.addSystemCommand(&.{ "qemu-system-i386", "-kernel" });
     boot.addArtifactArg(exe);
     boot.step.dependOn(&verify_multiboot.step);
 
     const boot_step = b.step("boot", "Boot to the build Kernel using QEMU");
     boot_step.dependOn(&boot.step);
+
+    const boot_debug = b.addSystemCommand(&.{ "qemu-system-i386", "-s", "-S", "-kernel" });
+    boot_debug.addArtifactArg(exe);
+    boot_debug.step.dependOn(&verify_multiboot.step);
+
+    const boot_debug_step = b.step("boot-debug", "Boot to the build Kernel using QEMU");
+    boot_debug_step.dependOn(&boot_debug.step);
 
     // Debug
     const debug = b.addSystemCommand(&.{ "gdb", "--eval-command='target remote localhost:1234'", "--eval-command='echo hello\n'" });

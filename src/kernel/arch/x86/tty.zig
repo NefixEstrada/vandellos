@@ -1,12 +1,3 @@
-usingnamespace @import("boot.zig");
-
-pub fn main() void {
-    var term = Terminal{};
-
-    term.reset();
-    term.write("Hola Vandellos");
-}
-
 const VGAColor = enum(u8) {
     black,
     blue,
@@ -34,11 +25,11 @@ fn vgaEntry(uc: u8, color: VGAColor) u16 {
     return uc | @as(u16, @intFromEnum(color)) << 8;
 }
 
-pub const Terminal = struct {
+pub const Tty = struct {
     const Self = @This();
 
     // 0xb8000 is the address of the VGA text buffer
-    pub const buffer: [*]volatile u16 = @ptrFromInt(0xb8000);
+    const buffer: [*]volatile u16 = @ptrFromInt(0xb8000);
 
     // width is the width of the terminal
     const width: usize = 80;
@@ -53,7 +44,7 @@ pub const Terminal = struct {
     color: VGAColor = vgaEntryColor(.light_grey, .black),
 
     // reset resets the screen with the active color
-    fn reset(self: *Self) void {
+    pub fn reset(self: *Self) void {
         for (0..height) |y| {
             for (0..width) |x| {
                 self.putCharAt(' ', self.color, x, y);
@@ -62,13 +53,13 @@ pub const Terminal = struct {
     }
 
     // putCharAt writes a character in a specific location with a specific color
-    fn putCharAt(_: *Self, char: u8, c: VGAColor, x: usize, y: usize) void {
+    pub fn putCharAt(_: *Self, char: u8, c: VGAColor, x: usize, y: usize) void {
         const i = y * width + x;
         buffer[i] = vgaEntry(char, c);
     }
 
     // putChar writes a character in the next place with the current color
-    fn putChar(self: *Self, char: u8) void {
+    pub fn putChar(self: *Self, char: u8) void {
         self.putCharAt(char, self.color, self.column, self.row);
         self.column += 1;
 
@@ -85,7 +76,7 @@ pub const Terminal = struct {
     }
 
     // write writes a slice of strings to the screen
-    fn write(self: *Self, data: []const u8) void {
+    pub fn write(self: *Self, data: []const u8) void {
         for (data) |c| {
             self.putChar(c);
         }
