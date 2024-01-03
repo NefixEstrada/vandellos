@@ -1,15 +1,28 @@
 const std = @import("std");
-//
+
 // TODO: This should be CPU architecture agnostic
 usingnamespace @import("arch/x86/boot.zig");
 
 const options = @import("arch.zig").options;
 
-export fn main() void {
-    var tty = options.Tty{};
-    tty.reset();
+var tty = options.Tty{};
+const writer = tty.writer();
 
-    const writer = tty.writer();
+pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
+    @setCold(true);
+
+    _ = ret_addr;
+    _ = error_return_trace;
+
+    _ = writer.write("kernel panic! :(\n") catch unreachable;
+    _ = writer.write("----------------\n") catch unreachable;
+    _ = writer.write(msg) catch unreachable;
+
+    while (true) {}
+}
+
+export fn main() void {
+    tty.reset();
 
     const msg =
         \\Hola VandellOS! 1
@@ -30,4 +43,6 @@ export fn main() void {
     writer.print("\n", .{}) catch unreachable;
     writer.print(msg, .{}) catch unreachable;
     writer.print("\n", .{}) catch unreachable;
+
+    @panic("AAAAAAAAAAAAA");
 }
