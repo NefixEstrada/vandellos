@@ -60,19 +60,29 @@ pub const Tty = struct {
 
     // putChar writes a character in the next place with the current color
     pub fn putChar(self: *Self, char: u8) void {
-        self.putCharAt(char, self.color, self.column, self.row);
-        self.column += 1;
+        switch (char) {
+            '\n' => self.newLine(),
+            else => {
+                self.putCharAt(char, self.color, self.column, self.row);
+                self.column += 1;
 
-        // Check if we've reached the end of the line
-        if (self.column == width) {
-            self.column = 0;
-            self.row += 1;
+                // Check if we've reached the end of the line
+                if (self.column == width) {
+                    self.newLine();
 
-            // Check if we've reached the end of the screen
-            if (self.row == height) {
-                self.row = 0;
-            }
+                    // Check if we've reached the end of the screen
+                    if (self.row == height) {
+                        self.row = 0;
+                    }
+                }
+            },
         }
+    }
+
+    // newLine jumps to a new line
+    fn newLine(self: *Self) void {
+        self.row += 1;
+        self.column = 0;
     }
 
     // write writes a slice of strings to the screen

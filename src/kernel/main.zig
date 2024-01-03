@@ -7,5 +7,5 @@ export fn main() void {
     var tty = options.Tty{};
 
     tty.reset();
-    tty.write("Hola Vandellos");
+    tty.write("Hola Vandellos\nUna\n\nDos\n\n\n:D");
 }
