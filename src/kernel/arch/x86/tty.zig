@@ -45,7 +45,7 @@ pub const Tty = struct {
     color: u16 = vgaEntryColor(.light_brown, .red),
 
     // Implement std.io.Writer
-    pub const WriteError = error{};
+    pub const WriteError = error{hello};
     pub const Writer = std.io.Writer(*Tty, WriteError, write);
     pub fn writer(self: *Self) Writer {
         return .{ .context = self };

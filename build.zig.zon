@@ -38,10 +38,10 @@
         //    // computed. This field and `url` are mutually exclusive.
         //    .path = "foo",
         //},
-	.grub2 = .{
-	    .url = "https://ftp.gnu.org/gnu/grub/grub-2.12.tar.gz",
-	    .hash = "122035ff4fdf180fa2a33cd61ab7148e962fd20982fb1255e2264953418ff569036c",
-	},
+        .grub2 = .{
+            .url = "https://ftp.gnu.org/gnu/grub/grub-2.12.tar.gz",
+            .hash = "122035ff4fdf180fa2a33cd61ab7148e962fd20982fb1255e2264953418ff569036c",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.

@@ -1,48 +1,42 @@
 const std = @import("std");
 
-// TODO: This should be CPU architecture agnostic
-usingnamespace @import("arch/x86/boot.zig");
+const arch_options = @import("arch.zig").options;
+const log = @import("log.zig");
 
-const options = @import("arch.zig").options;
-
-var tty = options.Tty{};
+var tty = arch_options.Tty{};
 const writer = tty.writer();
 
-pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
-    @setCold(true);
+// Setup the global logger function
+pub const std_options = std.Options{
+    .logFn = log.logFn(writer.any()),
+};
 
-    _ = ret_addr;
-    _ = error_return_trace;
-
-    _ = writer.write("kernel panic! :(\n") catch unreachable;
-    _ = writer.write("----------------\n") catch unreachable;
-    _ = writer.write(msg) catch unreachable;
-
-    while (true) {}
-}
+// Import the main entrypoints for the current architecture
+usingnamespace arch_options.boot;
 
 export fn main() void {
     tty.reset();
 
-    const msg =
-        \\Hola VandellOS! 1
-        \\Hola VandellOS! 2
-        \\Hola VandellOS! 3
-        \\Hola VandellOS! 4
-        \\Hola VandellOS! 5
-        \\Hola VandellOS! 6
-        \\Hola VandellOS! 7
-        \\Hola VandellOS! 8
-        \\Hola VandellOS! 9
-        \\Hola VandellOS! 10
-        \\Hola VandellOS! 11
-        \\Hola VandellOS! 12
-        \\Hola VandellOS! 13
-    ;
-    writer.print(msg, .{}) catch unreachable;
-    writer.print("\n", .{}) catch unreachable;
-    writer.print(msg, .{}) catch unreachable;
-    writer.print("\n", .{}) catch unreachable;
+    std.log.info("Starting up VandellOS! :)", .{});
 
-    @panic("AAAAAAAAAAAAA");
+    arch_options.init();
+
+    asm volatile ("int $0");
+}
+
+pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
+    @branchHint(.cold);
+
+    _ = ret_addr;
+    _ = error_return_trace;
+
+    _ = writer.print("\nkernel panic! :(\n", .{}) catch unreachable;
+    _ = writer.print("----------------\n", .{}) catch unreachable;
+    _ = writer.print("{s}", .{msg}) catch unreachable;
+
+    while (true) {}
+}
+
+test "refAllDecls" {
+    std.testing.refAllDecls(@This());
 }

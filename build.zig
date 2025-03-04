@@ -8,43 +8,38 @@ pub fn build(b: *std.Build) void {
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
     // for restricting supported target set are available.
-    const target = std.zig.CrossTarget{
+    const target = b.resolveTargetQuery(.{
+        .cpu_model = .{ .explicit = &std.Target.x86.cpu.i386 },
         .cpu_arch = .x86,
         .os_tag = .freestanding,
         .abi = .none,
-    };
+    });
 
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    // const libc = b.addStaticLibrary(.{
+    //     .name = "libc",
+    //     // In this case the main source file is merely a path, however, in more
+    //     // complicated build scripts, this could be a generated file.
+    //     .root_source_file = b.path("src/lib/libc/root.zig" ),
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
+    // b.installArtifact(libc);
+
     const exe = b.addExecutable(.{
         .name = "vandellos",
-        .root_source_file = .{ .path = "src/kernel/main.zig" },
+        .root_source_file = b.path("src/kernel/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
     // TODO: Depend on the target, not hardcoded
-    exe.setLinkerScript(.{ .path = b.pathFromRoot("./src/kernel/arch/x86/linker.ld") });
-
-    // Add Multiboot2 headers
-    // const grub2_dep = b.dependency("grub2", .{});
-    // const grub2_elf = b.addTranslateC(.{
-    //     .source_file = grub2_dep.path("include/grub/elf.h"),
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-    // grub2_elf.addIncludeDir(grub2_dep.path("include/").getPath(b));
-    // const grub2_multiboot = b.addTranslateC(.{
-    //     .source_file = grub2_dep.path("include/multiboot.h"),
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-    // grub2_multiboot.step.dependOn(&grub2_elf.step);
-
-    // exe.addModule("grub2", grub2_multiboot.createModule());
+    exe.setLinkerScript(b.path("src/kernel/arch/x86/linker.ld"));
+    exe.entry = .{ .symbol_name = "_main" };
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -75,10 +70,13 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/kernel/kernel/main.zig" },
+        .root_source_file = b.path("src/kernel/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    exe_unit_tests.setLinkerScript(b.path("src/kernel/arch/x86/linker.ld"));
+
+    // exe_unit_tests.test_runner = b.findProgram(&.{"qemu-system-i386"}, &.{}) catch @panic("qemu-system-i386 not found");
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
@@ -107,14 +105,34 @@ pub fn build(b: *std.Build) void {
     // iso_step.dependOn(&iso.step);
 
     // Boot
-    const boot = b.addSystemCommand(&.{ "qemu-system-i386", "-kernel" });
+    const boot = b.addSystemCommand(&.{
+        "qemu-system-i386",
+        "-d",
+        "int",
+        "-no-reboot",
+        "-D",
+        "debug.log",
+        "-kernel",
+    });
     boot.addArtifactArg(exe);
     boot.step.dependOn(&verify_multiboot.step);
 
     const boot_step = b.step("boot", "Boot to the build Kernel using QEMU");
     boot_step.dependOn(&boot.step);
 
-    const boot_debug = b.addSystemCommand(&.{ "qemu-system-i386", "-s", "-S", "-kernel" });
+    const boot_debug = b.addSystemCommand(&.{
+        "qemu-system-i386",
+        "-d",
+        "int",
+        "-D",
+        "debug.log",
+        "-no-reboot",
+        "-monitor",
+        "stdio",
+        "-s",
+        "-S",
+        "-kernel",
+    });
     boot_debug.addArtifactArg(exe);
     boot_debug.step.dependOn(&verify_multiboot.step);
 
@@ -122,10 +140,28 @@ pub fn build(b: *std.Build) void {
     boot_debug_step.dependOn(&boot_debug.step);
 
     // Debug
-    const debug = b.addSystemCommand(&.{ "gdb", "--eval-command='target remote localhost:1234'", "--eval-command='echo hello\n'" });
+    const gdb_command = &.{
+        "gdb",
+        "--eval-command",
+        "target remote localhost:1234",
+    };
+    const debug = b.addSystemCommand(gdb_command);
     debug.addArtifactArg(exe);
     debug.step.dependOn(&verify_multiboot.step);
 
     const debug_step = b.step("debug", "Attach to a running QEMU machine using GDB");
     debug_step.dependOn(&debug.step);
+
+    // Open de GUI debugger
+    const debug_gui = b.addSystemCommand(&.{
+        "gdbgui",
+        // TODO: Replace this with gdb_command
+        "--gdb-cmd",
+        "gdb --eval-command=\"target remote localhost:1234\"",
+    });
+    debug_gui.addArtifactArg(exe);
+    debug_gui.step.dependOn(&verify_multiboot.step);
+
+    const debug_gui_step = b.step("debug-gui", "Open the GUI debugger");
+    debug_gui_step.dependOn(&debug_gui.step);
 }
