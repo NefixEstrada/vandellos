@@ -80,6 +80,9 @@ const TableRegistry = packed struct {
     offset: u32,
 };
 
+// The offset in the table of the kernel mode code selector (1 is the index)
+pub const KERNEL_MODE_CODE_SELECTOR_OFFSET = @sizeOf(Entry) * 1;
+
 var table = [3]Entry{
     // TODO: Document what does each segment
     // Null Descriptor

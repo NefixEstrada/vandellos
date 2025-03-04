@@ -12,6 +12,7 @@
 /// 2. Tell the CPU to load the InterruptDescriptorTable as the actual IDT
 ///
 const std = @import("std");
+const global = @import("global.zig");
 
 const MAX_DESCRIPTORS = 256;
 const CPU_DESCRIPTORS = 32;
@@ -35,7 +36,6 @@ const TableRegistry = packed struct {
 };
 
 var table = std.mem.zeroes([MAX_DESCRIPTORS]Entry);
-// var interrupt_descriptor_table_registry: InterruptDescriptorTableRegistry align(4) = undefined;
 
 // TODO: Document this
 fn isrStub() callconv(.Naked) noreturn {
@@ -102,8 +102,8 @@ pub fn init() void {
             .isr_low = @truncate(@intFromPtr(&isrStub)),
             // Set the isr high bits of the address of the handler
             .isr_high = @truncate(@intFromPtr(&isrStub) >> 16),
-            // TODO: Set this value to the kernel code selector of the GDT
-            .selector = 0x08,
+            // Set this value to the kernel code selector of the GDT
+            .selector = global.KERNEL_MODE_CODE_SELECTOR_OFFSET,
         };
     }
 
