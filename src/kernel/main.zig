@@ -21,7 +21,8 @@ export fn main() void {
 
     arch_options.init();
 
-    asm volatile ("int $0");
+    asm volatile ("int $25");
+    asm volatile ("int $12");
 }
 
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
