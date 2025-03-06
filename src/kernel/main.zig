@@ -2,6 +2,7 @@ const std = @import("std");
 
 const arch_options = @import("arch.zig").options;
 const log = @import("log.zig");
+const acpi = @import("acpi.zig");
 
 var tty = arch_options.Tty{};
 const writer = tty.writer();
@@ -19,10 +20,8 @@ export fn main() void {
 
     std.log.info("Starting up VandellOS! :)", .{});
 
+    acpi.init();
     arch_options.init();
-
-    asm volatile ("int $25");
-    asm volatile ("int $12");
 }
 
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
