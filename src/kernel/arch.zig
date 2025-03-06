@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub const options = switch (builtin.cpu.arch) {
-    .x86 => @import("arch/x86/arch.zig"),
+    .x86 => @import("arch/x86/x86.zig"),
     else => @compileError("unsupported architecture"),
 };
 
