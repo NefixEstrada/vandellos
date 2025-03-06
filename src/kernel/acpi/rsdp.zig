@@ -4,13 +4,33 @@
 /// Depending on the ACPI version, it varies
 const std = @import("std");
 const log = std.log.scoped(.acpi);
+const rsdt = @import("rsdt.zig");
 
 const RSDP = extern struct {
+    pub const VerifyError = error{
+        InvalidChecksum,
+    };
+
     signature: [8]u8,
     checksum: u8,
     oem_id: [6]u8,
     revision: u8,
-    rsdt_address: u32,
+    rsdt_address: *rsdt.SDTHeader,
+
+    pub fn verify(self: *@This()) VerifyError!void {
+        // Verify the checksum
+        var checksum: u8 = 0;
+
+        // Add all sum all the bytes of the RSDP, overflowing
+        // the checksum calculation
+        for (std.mem.asBytes(self)) |b| {
+            checksum = @addWithOverflow(checksum, b)[0];
+        }
+
+        // If the checksum value doesn't end up being 0, the checksum
+        // validation has failed
+        if (checksum != 0) return error.InvalidChecksum;
+    }
 };
 
 const XSDP = extern struct {
@@ -33,16 +53,18 @@ const RSDP_SIGNATURE = "RSD PTR ";
 
 const rsdp_buffer: *[RSDP_MEM_SIZE]u8 = @ptrFromInt(RSDP_MEM_START);
 
-pub fn init() void {
+pub fn init() ?*RSDP {
     const rsdp = locateRSDP() catch |err| {
         log.err("error locating the RSDP: {s}", .{@errorName(err)});
-        return;
+        return null;
     };
 
-    validateRSDP(rsdp) catch |err| {
+    rsdp.verify() catch |err| {
         log.err("error validating the RSDP: {s}", .{@errorName(err)});
-        return;
+        return null;
     };
+
+    return rsdp;
 }
 
 const LocateRSDPError = error{
@@ -71,25 +93,4 @@ fn locateRSDP() LocateRSDPError!*RSDP {
     }
 
     return error.NotFound;
-}
-
-const ValidateRSDPError = error{
-    InvalidChecksum,
-};
-
-fn validateRSDP(rsdp: *RSDP) ValidateRSDPError!void {
-    log.info("validating the RSDP: {any}", .{rsdp});
-
-    // Verify the checksum
-    var checksum: u8 = 0;
-
-    // Add all sum all the bytes of the RSDP, overflowing
-    // the checksum calculation
-    for (std.mem.asBytes(rsdp)) |b| {
-        checksum = @addWithOverflow(checksum, b)[0];
-    }
-
-    // If the checksum value doesn't end up being 0, the checksum
-    // validation has failed
-    if (checksum != 0) return error.InvalidChecksum;
 }
