@@ -1,31 +1,7 @@
 const std = @import("std");
 
-// An ISR Stub is the Interrupt Service Routine (interrupt handler) that is called
-// directly by the CPU when an interrupt happens
-// This generates the ISR stubs for the exceptions
-pub fn generateIsrStub(interrupt: u32) fn () callconv(.Naked) noreturn {
-    return struct {
-        fn _() callconv(.Naked) noreturn {
-            asm volatile (
-            // Set the interrupt number as the first argument to the function call
-                \\ pushl %[itrpt]
-
-                // Call the handler
-                \\ call handleException
-
-                // Clear the first argument of the function call (push 4 bytes to the stack)
-                \\ addl $4, %esp
-
-                // Return to the program execution afterwards
-                \\ iret
-                :
-                : [itrpt] "r" (interrupt),
-            );
-        }
-    }._;
-}
-
-pub export fn handleException(interrupt: u32) void {
+pub const HANDLER_NAME = "handleExceptionInterruption";
+pub export fn handleExceptionInterruption(interrupt: u32) void {
     const name = switch (interrupt) {
         0 => "Division Error",
         1 => "Debug",

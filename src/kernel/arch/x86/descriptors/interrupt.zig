@@ -19,9 +19,10 @@
 const std = @import("std");
 const global = @import("global.zig");
 const exceptions = @import("../interrupts/exceptions.zig");
+const pic = @import("../interrupts/pic.zig");
 
 const MAX_DESCRIPTORS = 256;
-const CPU_DESCRIPTORS = 32;
+pub const CPU_DESCRIPTORS = 32;
 
 // Entry is an entry of the Interrupt Descriptor Table
 // It basically contains the pointer to the handler (isr_low + isr_high)
@@ -43,20 +44,60 @@ const TableRegistry = packed struct {
 
 var table = std.mem.zeroes([MAX_DESCRIPTORS]Entry);
 
+// An ISR Stub is the Interrupt Service Routine (interrupt handler) that is called
+// directly by the CPU when an interrupt happens
+const IsrStub = fn () callconv(.Naked) noreturn;
+
+// This generates the ISR stubs
+pub fn generateIsrStub(interrupt: u32, handler_name: []const u8) IsrStub {
+    return struct {
+        fn _() callconv(.Naked) noreturn {
+            asm volatile (std.fmt.comptimePrint(
+                // Set the interrupt number as the first argument to the function call
+                    \\ pushl %[itrpt]
+
+                    // Call the handler
+                    \\ call {s}
+
+                    // Clear the first argument of the function call (push 4 bytes to the stack)
+                    \\ addl $4, %esp
+
+                    // Return to the program execution afterwards
+                    \\ iret
+                , .{handler_name})
+                :
+                : [itrpt] "r" (interrupt),
+            );
+        }
+    }._;
+}
+
+fn addStubToTable(i: usize, stub: *const IsrStub) void {
+    table[i] = .{
+        // Set the isr lower bits of the address of the handler
+        .isr_low = @truncate(@intFromPtr(stub)),
+        // Set the isr high bits of the address of the handler
+        .isr_high = @truncate(@intFromPtr(stub) >> 16),
+        // Set this value to the kernel code selector of the GDT
+        .selector = global.KERNEL_MODE_CODE_SELECTOR_OFFSET,
+    };
+}
+
 pub fn init() void {
     // Generate the IDT entries for the Exception interrupts (CPU errors)
     inline for (0..CPU_DESCRIPTORS) |i| {
-        const stub = exceptions.generateIsrStub(@intCast(i));
+        const stub = generateIsrStub(@intCast(i), exceptions.HANDLER_NAME);
 
         // Generate the table entry
-        table[i] = .{
-            // Set the isr lower bits of the address of the handler
-            .isr_low = @truncate(@intFromPtr(&stub)),
-            // Set the isr high bits of the address of the handler
-            .isr_high = @truncate(@intFromPtr(&stub) >> 16),
-            // Set this value to the kernel code selector of the GDT
-            .selector = global.KERNEL_MODE_CODE_SELECTOR_OFFSET,
-        };
+        addStubToTable(i, &stub);
+    }
+
+    // Generate the IDT entries for the Hardware interrupts
+    inline for (CPU_DESCRIPTORS..CPU_DESCRIPTORS + (pic.PIC_IRQ_NUMBER * pic.PIC_NUMBER)) |i| {
+        const stub = generateIsrStub(@intCast(i), pic.HANDLER_NAME);
+
+        // Generate the table entry
+        addStubToTable(i, &stub);
     }
 
     const table_registry = TableRegistry{
