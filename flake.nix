@@ -1,19 +1,25 @@
 {
   description = "Vandellòs";
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
+    utils.url = "github:numtide/flake-utils";
     zig.url = "github:mitchellh/zig-overlay";
   };
-  
-  outputs = { self, nixpkgs, flake-utils, zig }:
-    flake-utils.lib.eachDefaultSystem
-      (system:
-        let pkgs = nixpkgs.legacyPackages.${system}; in
-          {
-            devShells.default = import ./shell.nix {
-              inherit pkgs;
-              zig = zig.packages.${system}.master;
-            };
-          }
-        );
+  outputs = { self, nixpkgs, utils, zig }: utils.lib.eachDefaultSystem (system:
+    let
+      pkgs = nixpkgs.legacyPackages.${system};
+      zigpkgs = zig.packages.${system};
+    in
+    {
+      devShell = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          # TODO: Add QEMU
+          zigpkgs.master
+          gdb
+          gdbgui
+          grub2
+          xorriso
+        ];
+      };
+    }
+  );
 }
