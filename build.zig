@@ -20,6 +20,12 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const exe_mod = b.createModule(.{
+        .root_source_file = b.path("src/kernel/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     // const libc = b.addStaticLibrary(.{
     //     .name = "libc",
     //     // In this case the main source file is merely a path, however, in more
@@ -32,9 +38,7 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "vandellos",
-        .root_source_file = b.path("src/kernel/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = exe_mod,
     });
 
     // TODO: Depend on the target, not hardcoded
