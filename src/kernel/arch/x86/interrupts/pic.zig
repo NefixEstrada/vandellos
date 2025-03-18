@@ -81,7 +81,7 @@ const InitializationControlWord2 = packed struct {
 const InitializationControlWord3Primary = packed struct {
     // Specifies at which IRQ the secondary PIC is connected to
     // This needs to be in binary form, starting from the right
-    // e.g. 0b00000100 => IRQ 2 => 0x4
+    // e.g. 0b000_00100 => IRQ 2 => 0x4
     secondary_irq: u8,
 };
 
