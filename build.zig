@@ -20,21 +20,29 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const interp_mod = b.createModule(.{
+        .root_source_file = b.path("src/lib/interp/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const interp_unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/lib/interp/root.zig"),
+        .target = b.standardTargetOptions(.{}),
+        .optimize = optimize,
+    });
+
+    const run_interp_unit_tests = b.addRunArtifact(interp_unit_tests);
+
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/kernel/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    exe_mod.addImport("interp", interp_mod);
 
-    // const libc = b.addStaticLibrary(.{
-    //     .name = "libc",
-    //     // In this case the main source file is merely a path, however, in more
-    //     // complicated build scripts, this could be a generated file.
-    //     .root_source_file = b.path("src/lib/libc/root.zig" ),
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-    // b.installArtifact(libc);
+    const test_interp_step = b.step("test-interp", "Run interp module unit tests");
+    test_interp_step.dependOn(&run_interp_unit_tests.step);
 
     const exe = b.addExecutable(.{
         .name = "vandellos",
@@ -88,6 +96,7 @@ pub fn build(b: *std.Build) void {
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_interp_unit_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
 
     // Verify Multiboot
